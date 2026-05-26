@@ -611,6 +611,13 @@ require("lazy").setup({
         end,
     },
 
+    -- sc-inline-visual.nvim: inline SuperCollider amp/freq/Env visualizations (vendored)
+    {
+        dir = vim.fn.stdpath("config") .. "/plugins/sc-inline-visual.nvim",
+        ft = "supercollider",
+        dependencies = { "davidgranstrom/scnvim" },
+    },
+
     -- Claude Code integration
     {
   "coder/claudecode.nvim",
