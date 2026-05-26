@@ -24,7 +24,7 @@ vim.opt.ttimeoutlen = 10    -- fast escape sequence detection (distinguishes Esc
 -- UI
 vim.opt.cursorline = true
 vim.opt.number = true
-vim.opt.relativenumber = true
+vim.opt.relativenumber = false
 vim.opt.scrolloff = 3
 vim.opt.showcmd = true
 vim.opt.title = true
@@ -108,17 +108,48 @@ vim.env.PATH = "/Applications/SuperCollider.app/Contents/MacOS:" .. vim.env.PATH
 --- Keymaps (from .vimrc) ---
 local map = vim.keymap.set
 
+-- Project runner: detect project type and run appropriate command
+local function get_run_cmd()
+    local runners = {
+        ["package.json"]  = "npm run dev",
+        ["Cargo.toml"]    = "cargo run",
+        ["go.mod"]        = "go run .",
+        ["Makefile"]      = "make",
+        ["pyproject.toml"] = "python -m pytest",
+        ["manage.py"]     = "python manage.py runserver",
+    }
+    for file, cmd in pairs(runners) do
+        if vim.fn.filereadable(file) == 1 then
+            return cmd
+        end
+    end
+    return nil
+end
+
+map("n", "<leader>r", function()
+    local cmd = get_run_cmd()
+    if cmd then
+        vim.cmd("botright vsplit | terminal " .. cmd)
+    else
+        vim.notify("No recognized project file found", vim.log.levels.WARN)
+    end
+end, { desc = "Run project" })
+
 -- Terminal: double Esc to exit terminal mode back to Neovim normal mode
 -- Single Esc goes to Claude Code's vim mode
 map("t", "<Esc><Esc>", [[<C-\><C-n>]])
+
+-- Terminal: Ctrl+w pane switching without leaving terminal mode manually
+map("t", "<C-w>h", [[<C-\><C-n><C-w>h]])
+map("t", "<C-w>j", [[<C-\><C-n><C-w>j]])
+map("t", "<C-w>k", [[<C-\><C-n><C-w>k]])
+map("t", "<C-w>l", [[<C-\><C-n><C-w>l]])
 
 
 -- Yank to system clipboard
 map("n", "<Leader>y", '"+y')
 map("v", "<Leader>y", '"+y')
 
--- Toggle relativenumber
-map("n", "<Leader>r", ":set relativenumber!<CR>", { silent = true })
 
 -- Wrapped line navigation
 map("n", "k", "v:count == 0 ? 'gk' : 'k'", { expr = true })
@@ -139,9 +170,8 @@ map("n", "gV", "'[V']")
 -- Toggle folding with Space (in normal mode, non-leader)
 map("n", "<Space>", "@=(foldlevel('.')?'za':\"\\<Space>\")<CR>", { silent = true })
 
---- SC Workspace: single command to set up the full layout ---
---- Editor (left) | Claude Code (top-right)
----               | SC Post Window (bottom-right)
+--- SC Workspace: Claude Code (top-left) | Editor (right, centered)
+---                SC Post Win (bot-left) |
 local function sc_workspace()
     -- Close all splits, keep current buffer (editor)
     vim.cmd("only")
@@ -150,10 +180,10 @@ local function sc_workspace()
     -- Force-load claudecode plugin so :ClaudeCode is available
     require("lazy").load({ plugins = { "claudecode.nvim" } })
 
-    -- Let Claude Code open its own vertical split on the right
+    -- Open Claude Code (it creates a vertical split)
     vim.cmd("ClaudeCode")
 
-    -- After Claude Code opens, split below it for postwin
+    -- After Claude Code opens, rearrange to left side + add postwin
     vim.defer_fn(function()
         -- Find the Claude Code terminal window
         local claude_win = nil
@@ -166,11 +196,17 @@ local function sc_workspace()
         end
 
         if claude_win then
-            -- Focus Claude Code window, split below for postwin
+            -- Move Claude Code window to far left
             vim.api.nvim_set_current_win(claude_win)
+            vim.cmd("wincmd H")
+
+            -- Resize left pane to ~30% width
+            local total_width = vim.o.columns
+            vim.cmd("vertical resize " .. math.floor(total_width * 0.3))
+
+            -- Split below Claude Code for postwin
             vim.cmd("belowright split")
-            local right_bot_win = vim.api.nvim_get_current_win()
-            -- 30% height for postwin, 70% for Claude Code
+            local left_bot_win = vim.api.nvim_get_current_win()
             local total_height = vim.o.lines
             vim.cmd("resize " .. math.floor(total_height * 0.3))
 
@@ -180,8 +216,14 @@ local function sc_workspace()
             vim.api.nvim_buf_set_option(buf, "filetype", "scnvim")
             pcall(vim.api.nvim_buf_set_name, buf, "[scnvim]")
             postwin.buf = buf
-            postwin.win = right_bot_win
-            vim.api.nvim_win_set_buf(right_bot_win, buf)
+            postwin.win = left_bot_win
+            vim.api.nvim_win_set_buf(left_bot_win, buf)
+
+            -- Lock non-editor windows so Claude diffs always open in the editor pane
+            vim.wo[claude_win].winfixbuf = true
+            vim.wo[left_bot_win].winfixbuf = true
+            vim.wo[left_bot_win].winfixwidth = true
+            vim.wo[left_bot_win].winfixheight = true
         end
 
         -- Go to editor and start sclang
@@ -198,7 +240,45 @@ end
 vim.api.nvim_create_user_command("SCWorkspace", sc_workspace, {})
 map("n", "<Leader>go", "<cmd>SCWorkspace<CR>", { desc = "SC + Claude workspace" })
 
+--- Korean IME safety net ---
+-- :ㅈ → :w, :ㅈㅂ → :wq, :ㅂㅁ! → :qa! 같이 IME 끄는 걸 깜빡한 명령을 자동 변환.
+-- 명령행 전체가 약어와 일치할 때만 발동 → :%s/foo/ㅈ/g 같은 정상 입력은 그대로.
+local function kabbrev(kor, en)
+    vim.cmd(string.format(
+        "cnoreabbrev <expr> %s (getcmdtype() == ':' && getcmdline() ==# '%s') ? '%s' : '%s'",
+        kor, kor, en, kor
+    ))
+end
+
+-- 단일 명령
+kabbrev("ㅈ",     "w")    -- :w
+kabbrev("ㅂ",     "q")    -- :q
+kabbrev("ㅌ",     "x")    -- :x
+kabbrev("ㄷ",     "e")    -- :e
+kabbrev("ㅗ",     "h")    -- :h(elp)
+-- 조합 명령 (! 이나 인자는 약어 뒤에 그대로 붙는다: :ㅂㅁ! → :qa!)
+kabbrev("ㅈㅂ",   "wq")   -- :wq
+kabbrev("ㅂㅁ",   "qa")   -- :qa
+kabbrev("ㅈㅁ",   "wa")   -- :wa
+kabbrev("ㅈㅂㅁ", "wqa")  -- :wqa
+-- 버퍼
+kabbrev("ㅠㄴ",   "bn")   -- :bnext
+kabbrev("ㅠㄷ",   "bp")   -- :bprev
+kabbrev("ㅠㅇ",   "bd")   -- :bdelete
+
 --- Autocommands ---
+
+-- Auto-save on focus loss or text change
+vim.api.nvim_create_autocmd({ "FocusLost", "InsertLeave", "TextChanged" }, {
+    command = "silent! update",
+})
+
+-- Auto-switch to English input method when leaving Insert mode
+vim.api.nvim_create_autocmd("InsertLeave", {
+    callback = function()
+        vim.fn.system({ "im-select", "com.apple.keylayout.ABC" })
+    end,
+})
 
 -- Return to last edit position
 vim.api.nvim_create_autocmd("BufReadPost", {
@@ -213,10 +293,20 @@ vim.api.nvim_create_autocmd("BufReadPost", {
 
 -- Strip trailing whitespace on save
 vim.api.nvim_create_autocmd("BufWritePre", {
-    pattern = { "*.c", "*.cpp", "*.css", "*.html", "*.py", "*.sh", "*.tex", "*.yaml", "*.yml", "*.scd", "*.sc" },
+    pattern = { "*.c", "*.cpp", "*.css", "*.html", "*.py", "*.sh", "*.tex", "*.yaml", "*.yml", "*.scd", "*.sc", "*.ts", "*.tsx", "*.js", "*.jsx", "*.json" },
     callback = function()
         local save = vim.fn.winsaveview()
         vim.cmd([[%s/\s\+$//e]])
+        vim.fn.winrestview(save)
+    end,
+})
+
+-- Auto-indent SuperCollider files on save
+vim.api.nvim_create_autocmd("BufWritePre", {
+    pattern = { "*.scd", "*.sc" },
+    callback = function()
+        local save = vim.fn.winsaveview()
+        require("sc_indent").indent_buffer()
         vim.fn.winrestview(save)
     end,
 })
@@ -230,6 +320,53 @@ vim.api.nvim_create_autocmd({ "BufNewFile", "BufRead" }, {
     pattern = "*.tex",
     callback = function() vim.bo.filetype = "tex"; vim.bo.textwidth = 79 end,
 })
+
+--- LSP (native vim.lsp.config, Neovim 0.12+) ---
+
+-- LSP keymaps on attach
+vim.api.nvim_create_autocmd("LspAttach", {
+    callback = function(ev)
+        local opts = { buffer = ev.buf }
+        map("n", "gd", vim.lsp.buf.definition, opts)
+        map("n", "gD", vim.lsp.buf.declaration, opts)
+        map("n", "gr", vim.lsp.buf.references, opts)
+        map("n", "gi", vim.lsp.buf.implementation, opts)
+        map("n", "gy", vim.lsp.buf.type_definition, opts)
+        map("n", "K", vim.lsp.buf.hover, opts)
+        map("n", "<Leader>rn", vim.lsp.buf.rename, opts)
+        map("n", "<Leader>ca", vim.lsp.buf.code_action, opts)
+        map("n", "<Leader>d", vim.diagnostic.open_float, opts)
+        map("n", "[d", vim.diagnostic.goto_prev, opts)
+        map("n", "]d", vim.diagnostic.goto_next, opts)
+    end,
+})
+
+-- vtsls: TypeScript/JavaScript
+vim.lsp.config("vtsls", {
+    cmd = { "vtsls", "--stdio" },
+    filetypes = { "typescript", "typescriptreact", "javascript", "javascriptreact" },
+    root_markers = { "tsconfig.json", "jsconfig.json", "package.json", ".git" },
+    settings = {
+        typescript = {
+            inlayHints = {
+                parameterNames = { enabled = "all" },
+                parameterTypes = { enabled = true },
+                variableTypes = { enabled = true },
+                propertyDeclarationTypes = { enabled = true },
+                functionLikeReturnTypes = { enabled = true },
+            },
+        },
+        javascript = {
+            inlayHints = {
+                parameterNames = { enabled = "all" },
+                variableTypes = { enabled = true },
+                functionLikeReturnTypes = { enabled = true },
+            },
+        },
+    },
+})
+
+vim.lsp.enable("vtsls")
 
 --- Plugins ---
 require("lazy").setup({
@@ -280,18 +417,7 @@ require("lazy").setup({
     -- Git wrapper (fugitive, same as .vimrc)
     "tpope/vim-fugitive",
 
-    -- Easy motion
-    {
-        "phaazon/hop.nvim",
-        branch = "v2",
-        config = function()
-            local hop = require("hop")
-            hop.setup()
-            map("n", "s", ":HopChar2<CR>", { silent = true })
-        end,
-    },
-
-    -- Treesitter: better syntax highlighting + rainbow brackets
+-- Treesitter: better syntax highlighting + rainbow brackets
     {
         "nvim-treesitter/nvim-treesitter",
         build = ":TSUpdate",
@@ -361,6 +487,40 @@ require("lazy").setup({
         },
     },
 
+    -- Mason: LSP server installer
+    {
+        "williamboman/mason.nvim",
+        config = function()
+            require("mason").setup()
+        end,
+    },
+
+    -- Formatter (prettier for TS/JS)
+    {
+        "stevearc/conform.nvim",
+        event = "BufWritePre",
+        keys = {
+            { "<Leader>cf", function() require("conform").format({ async = true }) end, desc = "Format buffer" },
+        },
+        config = function()
+            require("conform").setup({
+                formatters_by_ft = {
+                    typescript = { "prettier" },
+                    typescriptreact = { "prettier" },
+                    javascript = { "prettier" },
+                    javascriptreact = { "prettier" },
+                    json = { "prettier" },
+                    css = { "prettier" },
+                    html = { "prettier" },
+                },
+                format_on_save = {
+                    timeout_ms = 2000,
+                    lsp_format = "fallback",
+                },
+            })
+        end,
+    },
+
     -- Completion engine
     {
         "hrsh7th/nvim-cmp",
@@ -368,6 +528,7 @@ require("lazy").setup({
         dependencies = {
             "L3MON4D3/LuaSnip",
             "saadparwaiz1/cmp_luasnip",
+            "hrsh7th/cmp-nvim-lsp",
             "quangnguyen30192/cmp-nvim-tags",
         },
         config = function()
@@ -404,6 +565,7 @@ require("lazy").setup({
                     end, { "i", "s" }),
                 }),
                 sources = cmp.config.sources({
+                    { name = "nvim_lsp" },
                     { name = "luasnip" },
                     { name = "tags" },
                 }),
@@ -474,4 +636,20 @@ require("lazy").setup({
     { "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
   },
 },
+
+    -- Paste images from clipboard
+    {
+        "HakonHarnes/img-clip.nvim",
+        event = "VeryLazy",
+        opts = {},
+        keys = {
+            { "<leader>p", "<cmd>PasteImage<cr>", desc = "Paste image from system clipboard" },
+        },
+    },
+
+    -- SC Inline Visual: live visual annotations for SuperCollider
+    {
+        dir = "~/sc-inline-visual.nvim",
+        ft = "supercollider",
+    },
 })
