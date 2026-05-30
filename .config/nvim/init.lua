@@ -611,13 +611,6 @@ require("lazy").setup({
         end,
     },
 
-    -- sc-inline-visual.nvim: inline SuperCollider amp/freq/Env visualizations (vendored)
-    {
-        dir = vim.fn.stdpath("config") .. "/plugins/sc-inline-visual.nvim",
-        ft = "supercollider",
-        dependencies = { "davidgranstrom/scnvim" },
-    },
-
     -- Claude Code integration
     {
   "coder/claudecode.nvim",
@@ -654,9 +647,14 @@ require("lazy").setup({
         },
     },
 
-    -- SC Inline Visual: live visual annotations for SuperCollider
+    -- SC Inline Visual: live visual annotations for SuperCollider.
+    -- Canonical: https://github.com/mixify/sc-inline-visual.nvim
+    -- `dir` points at the local working clone; remove it on machines without one
+    -- and lazy will fall back to cloning from the GitHub shorthand above.
     {
+        "mixify/sc-inline-visual.nvim",
         dir = "~/sc-inline-visual.nvim",
         ft = "supercollider",
+        dependencies = { "davidgranstrom/scnvim" },
     },
 })
