@@ -476,6 +476,19 @@ require("lazy").setup({
         keys = { { "<F5>", ":UndotreeToggle<CR>", desc = "Undotree" } },
     },
 
+    -- File explorer (edit filesystem as a buffer)
+    {
+        "stevearc/oil.nvim",
+        lazy = false,
+        opts = {
+            view_options = { show_hidden = true },
+        },
+        keys = {
+            { "-", "<cmd>Oil<cr>", desc = "Open parent directory (Oil)" },
+            { "<leader>e", "<cmd>Oil<cr>", desc = "Open Oil file explorer" },
+        },
+    },
+
     -- Fuzzy finder (replaces ctrlp)
     {
         "nvim-telescope/telescope.nvim",
@@ -484,6 +497,8 @@ require("lazy").setup({
             { "<C-p>", "<cmd>Telescope find_files<CR>", desc = "Find files" },
             { "<Leader>g", "<cmd>Telescope live_grep<CR>", desc = "Live grep" },
             { "<Leader>b", "<cmd>Telescope buffers<CR>", desc = "Buffers" },
+            { "<F14>", "<cmd>Telescope live_grep<CR>", desc = "Find in Files (Cmd+Shift+F)" },
+            { "<F15>", "<cmd>Telescope find_files<CR>", desc = "Go to File (Cmd+P)" },
         },
     },
 
@@ -647,14 +662,9 @@ require("lazy").setup({
         },
     },
 
-    -- SC Inline Visual: live visual annotations for SuperCollider.
-    -- Canonical: https://github.com/mixify/sc-inline-visual.nvim
-    -- `dir` points at the local working clone; remove it on machines without one
-    -- and lazy will fall back to cloning from the GitHub shorthand above.
+    -- SC Inline Visual: live visual annotations for SuperCollider
     {
-        "mixify/sc-inline-visual.nvim",
         dir = "~/sc-inline-visual.nvim",
         ft = "supercollider",
-        dependencies = { "davidgranstrom/scnvim" },
     },
 })
