@@ -499,6 +499,7 @@ require("lazy").setup({
             { "<Leader>b", "<cmd>Telescope buffers<CR>", desc = "Buffers" },
             { "<F14>", "<cmd>Telescope live_grep<CR>", desc = "Find in Files (Cmd+Shift+F)" },
             { "<F15>", "<cmd>Telescope find_files<CR>", desc = "Go to File (Cmd+P)" },
+            { "<F16>", "<cmd>Telescope oldfiles<CR>", desc = "Recent files (Cmd+E)" },
         },
     },
 
