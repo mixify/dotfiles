@@ -21,3 +21,4 @@ export PATH="$VIRTUAL_ENV/bin:$PATH"
 
 export PATH="$HOME/.local/bin:$PATH"
 alias claude='claude --dangerously-skip-permissions'
+alias nvim-clj="NVIM_APPNAME=nvim-clojure nvim"

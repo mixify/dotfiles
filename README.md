@@ -2,24 +2,14 @@
 
 My development environment for SuperCollider + Neovim + Claude Code.
 
-## Setup
+## Setup (new Mac)
 
 ```bash
-# Clone
 git clone https://github.com/mixify/dotfiles.git ~/dotfiles
-
-# Symlink
-ln -sf ~/dotfiles/.vimrc ~/.vimrc
-ln -sf ~/dotfiles/.zshrc ~/.zshrc
-mkdir -p ~/.config/nvim
-ln -sf ~/dotfiles/.config/nvim/init.lua ~/.config/nvim/init.lua
-
-# Install plugins (first launch)
-nvim --headless "+Lazy! sync" +qa
-
-# Install treesitter parser
-nvim --headless "+TSInstall supercollider lua" +qa
+~/dotfiles/install.sh
 ```
+
+`install.sh` is idempotent: installs Homebrew + `Brewfile`, symlinks configs (backing up anything existing), points iTerm2 at this repo, and syncs nvim plugins.
 
 ### Requirements
 
