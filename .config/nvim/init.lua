@@ -341,6 +341,19 @@ vim.api.nvim_create_autocmd("LspAttach", {
     end,
 })
 
+-- Find usages: open Telescope picker. LSP references if available, else project-wide grep.
+local function find_usages_picker()
+    local builtin = require("telescope.builtin")
+    if #vim.lsp.get_clients({ bufnr = 0 }) > 0 then
+        builtin.lsp_references()
+    else
+        builtin.grep_string()
+    end
+end
+map("n", "gR", find_usages_picker, { desc = "Find usages (picker)" })
+map("n", "]q", ":cnext<CR>", { desc = "Next quickfix" })
+map("n", "[q", ":cprev<CR>", { desc = "Previous quickfix" })
+
 -- vtsls: TypeScript/JavaScript
 vim.lsp.config("vtsls", {
     cmd = { "vtsls", "--stdio" },
@@ -624,6 +637,56 @@ require("lazy").setup({
                     size = 10,
                 },
             })
+            -- scnvim's send_block (Ctrl+e) finds the enclosing ( ) via
+            -- scnvim#editor#get_block, which uses synID() to skip parens inside
+            -- comments/strings. Treesitter highlighting clears &syntax, so
+            -- synID() returns nothing, the skip fails, and a paren in a comment
+            -- (e.g. "// M1)") gets counted as code -> Ctrl+e swallows a huge
+            -- region. Rather than disable treesitter, override get_block to ask
+            -- treesitter whether a paren sits in a @comment/@string node. Keeps
+            -- TS highlighting + rainbow AND fixes block evaluation.
+            _G.SCNvimBlockSkip = function()
+                local ok, caps = pcall(vim.treesitter.get_captures_at_cursor, 0)
+                if ok and caps and #caps > 0 then
+                    for _, name in ipairs(caps) do
+                        if name:find("comment") or name:find("string") then
+                            return 1
+                        end
+                    end
+                    return 0
+                end
+                -- fallback for buffers without a treesitter parser (legacy syntax)
+                local syn = vim.fn.synIDattr(vim.fn.synID(vim.fn.line("."), vim.fn.col("."), 0), "name")
+                if syn:find("[Cc]omment") or syn:find("[Ss]tring") or syn:find("Symbol") then
+                    return 1
+                end
+                return 0
+            end
+            -- Source scnvim's autoload defs first, then override get_block so our
+            -- version wins (and isn't re-clobbered by a later autoload source).
+            vim.cmd("runtime autoload/scnvim/editor.vim")
+            vim.cmd([==[
+                function! scnvim#editor#get_block() abort
+                    let l:skip = 'v:lua.SCNvimBlockSkip()'
+                    let l:cur = getcurpos()
+                    call setpos('.', [0, l:cur[1], 1, 0])
+                    let [l:xs, l:ys] = searchpairpos('(', '', ')', 'nbW', l:skip)
+                    let l:start = [l:xs, l:ys]
+                    if l:xs == 0 && l:ys == 0
+                        let l:start = [line('.'), col('.')]
+                    else
+                        while l:xs > 0 && l:ys > 0
+                            call setpos('.', [0, l:xs, l:ys, 0])
+                            let l:start = [l:xs, l:ys]
+                            let [l:xs, l:ys] = searchpairpos('(', '', ')', 'nbW', l:skip)
+                        endwhile
+                    endif
+                    call setpos('.', [0, l:start[0], l:start[1], 0])
+                    let l:end = searchpairpos('(', '', ')', 'nW', l:skip)
+                    call setpos('.', l:cur)
+                    return [l:start[0], l:end[0]]
+                endfunction
+            ]==])
         end,
     },
 

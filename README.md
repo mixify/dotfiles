@@ -139,3 +139,9 @@ nvim --headless "+TSInstall supercollider lua" +qa
 │              │     (30%)       │
 └──────────────┴──────────────────┘
 ```
+
+## Other configs
+
+- `.config/kitty/` — kitty terminal (based on practicalli/dotfiles, with splits/tab shortcuts). `ln -sfn ~/dotfiles/.config/kitty ~/.config/kitty`
+- `.config/nvim-clojure/` — Neovim config for Clojure (lazy.nvim + Conjure + paredit). Use with `NVIM_APPNAME=nvim-clojure nvim` after `ln -sfn ~/dotfiles/.config/nvim-clojure ~/.config/nvim-clojure`
+- `clojure/` — practice project (`deps.edn`, `env.sh`, `src/`)
