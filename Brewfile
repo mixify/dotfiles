@@ -1,4 +1,4 @@
-tap "clojure/tools"
+tap "borkdude/brew"
 
 # CLI
 brew "git"
@@ -19,7 +19,15 @@ brew "node"
 brew "rust"
 brew "cmake"
 brew "openjdk"
-brew "clojure/tools/clojure"
+brew "clojure"
+brew "borkdude/brew/babashka"
+brew "borkdude/brew/clj-kondo"
+brew "clojure-lsp"
+brew "cljstyle"
+brew "jet"
+brew "leiningen"
+brew "rlwrap"
+brew "fzf"
 
 # Media / misc
 brew "ffmpeg"

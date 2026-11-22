@@ -130,8 +130,12 @@ git clone https://github.com/mixify/dotfiles.git ~/dotfiles
 └──────────────┴──────────────────┘
 ```
 
-## Other configs
+## What's in here
 
-- `.config/kitty/` — kitty terminal (based on practicalli/dotfiles, with splits/tab shortcuts). `ln -sfn ~/dotfiles/.config/kitty ~/.config/kitty`
-- `.config/nvim-clojure/` — Neovim config for Clojure (lazy.nvim + Conjure + paredit). Use with `NVIM_APPNAME=nvim-clojure nvim` after `ln -sfn ~/dotfiles/.config/nvim-clojure ~/.config/nvim-clojure`
+Shell/Clojure stack is [practicalli](https://practical.li) pinned to exact commits in `install.sh`, plus my overrides:
+
+- `patches/practicalli-dotfiles.patch` — kitty splits/tab keys, `local.zsh` hook on top of practicalli/dotfiles
+- `zsh/local.zsh` — machine-local PATH, aliases, JAVA_HOME (brew openjdk)
+- `.config/nvim/` — SuperCollider nvim; `.config/nvim-clojure/` — Clojure nvim (Conjure + paredit), run with `nvim-clj`
 - `clojure/` — practice project (`deps.edn`, `env.sh`, `src/`)
+- `Brewfile` — all packages/apps incl. clojure, babashka, clj-kondo, clojure-lsp
